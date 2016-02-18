@@ -4,8 +4,9 @@
   "description": "Browse and display Graphite graphs in terminal",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublish": "cake build"
+   },
   "bin": { "terphite": "./bin/terphite" },
   "repository": {
     "type": "git",

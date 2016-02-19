@@ -1,13 +1,15 @@
 {
   "name": "terphite",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Browse and display Graphite graphs in terminal",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepublish": "cake build"
-   },
-  "bin": { "terphite": "./bin/terphite" },
+  },
+  "bin": {
+    "terphite": "./bin/terphite"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/benwtr/terphite.git"

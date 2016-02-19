@@ -131,6 +131,7 @@ module.exports = class Terphite
       width: '80%'
       height: 8
       keys: true
+      mouse: true
       style:
         fg: 'blue'
       border:
@@ -149,6 +150,7 @@ module.exports = class Terphite
       padding: 1
       interactive: true
       items: selected_metrics
+      mouse: true
       keys: true
       tags: true
       style:
@@ -166,6 +168,7 @@ module.exports = class Terphite
       top: 'center'
       width: '80%'
       height: 8
+      mouse: true
       keys: true
       style:
         fg: 'blue'

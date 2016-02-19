@@ -8,10 +8,10 @@ This could be taken much, much further. Implementing the features of Kibana or G
 
 Next steps might be to add the _Graph Options_ and _Apply Function_ features from Composer. And make a dashboard view a la [blessed-graphite](https://github.com/lovehandle/blessed-graphite) that can display and save a grid of graphs.
 
-#### Demo
+#### Demo Screencast
 ![](http://i.imgur.com/l8LbbrG.gif)
 
-#### What people are saying about Terphite :-)
+##### Reactions to the Screencast :-)
 > grubernaut [4:37 PM]
 holy shit
 
@@ -28,3 +28,4 @@ that’s better than the real thing lol
 ### Usage
 
     terphite http://user:pass@your.graphite.com:1234
+

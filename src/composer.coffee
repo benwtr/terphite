@@ -224,8 +224,9 @@ module.exports = class Terphite
       extra += '&format=json' if opts.format == 'json'
       maxdp = parseInt(opts.maxDataPoints,10)
       extra += "&maxDataPoints=#{maxdp}" if maxdp > 0
-      target = metrics.join('&target=')
-      "#{graphite_uri}/render?from=#{from}&target=#{target}#{extra}"
+      target =  ''
+      target += '&target=' + metrics.join('&target=') if metrics.length
+      "#{graphite_uri}/render?from=#{from}#{target}#{extra}"
 
     fetchMetricData = (metrics, from) ->
       options =

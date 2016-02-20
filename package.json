@@ -1,6 +1,6 @@
 {
   "name": "terphite",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Browse and display Graphite graphs in terminal",
   "main": "index.js",
   "scripts": {

@@ -2,7 +2,7 @@
 
 This is a toy/experimental Console [Graphite](http://graphite.readthedocs.org/) Browser loosely based on Graphite Composer.
 
-It uses [blessed](https://github.com/chjj/blessed) and [blessed-contrib](https://github.com/yaronn/blessed-contrib) (line graph and tree) to do all the heavy lifting. *blessed-contrib* is a library for building console dashboards, it provides the tree and graph widgets. *blessed* is the UI toolkit, it has a DOM-like API and is surprisingly easy to work with.
+It uses [blessed](https://github.com/chjj/blessed) and [blessed-contrib](https://github.com/yaronn/blessed-contrib) to do all the heavy lifting. *blessed-contrib* is a library for building console dashboards, it provides the tree and graph widgets. *blessed* is the UI toolkit, it has a DOM-like API and is surprisingly easy to work with.
 
 Next steps might be to add the _Graph Options_ and _Apply Function_ features from Composer. And make a dashboard view a la [blessed-graphite](https://github.com/lovehandle/blessed-graphite) that can display and save a grid of graphs.
 

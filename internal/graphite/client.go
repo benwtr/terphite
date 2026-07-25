@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -109,6 +110,58 @@ func (c *Client) RenderURL(q RenderQuery) string {
 	u.Path = strings.TrimRight(u.Path, "/") + "/render"
 	u.RawQuery = q.values().Encode()
 	return u.String()
+}
+
+// ImageQuery describes a request for Graphite's own rendered PNG, used for
+// terminals that can display images inline.
+type ImageQuery struct {
+	Targets  []string
+	From     string
+	Width    int
+	Height   int
+	AreaMode string // "none", "all", or "stacked" — Graphite's areaMode param
+}
+
+func (q ImageQuery) values() url.Values {
+	v := url.Values{}
+	v.Set("format", "png")
+	if q.From != "" {
+		v.Set("from", q.From)
+	}
+	for _, t := range q.Targets {
+		v.Add("target", t)
+	}
+	if q.Width > 0 {
+		v.Set("width", strconv.Itoa(q.Width))
+	}
+	if q.Height > 0 {
+		v.Set("height", strconv.Itoa(q.Height))
+	}
+	if q.AreaMode != "" {
+		v.Set("areaMode", q.AreaMode)
+	}
+	return v
+}
+
+// FetchRenderImage fetches a rendered PNG for q from GET /render.
+func (c *Client) FetchRenderImage(ctx context.Context, q ImageQuery) ([]byte, error) {
+	req, err := c.newRequest(ctx, "/render", q.values())
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("graphite: fetching render image: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("graphite: render image returned status %d", resp.StatusCode)
+	}
+	png, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("graphite: reading render image: %w", err)
+	}
+	return png, nil
 }
 
 // Datapoint is a single (possibly missing) sample from a render response.

@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/benwtr/terphite/internal/termimg"
 )
 
 func (m *Model) View() string {
@@ -25,7 +27,7 @@ func (m *Model) View() string {
 
 func (m *Model) viewComposerScreen() string {
 	statusHeight := 3
-	help := helpText(m.viewMode, m.popup, m.drawMode)
+	help := helpText(m.viewMode, m.popup, m.drawMode, m.imageProtocol)
 	helpHeight := helpBoxHeight(help, m.height/2)
 	bodyHeight := clampMin(m.height-statusHeight-helpHeight, 3)
 	treeWidth := clampMin(m.width/4, 10)
@@ -37,8 +39,7 @@ func (m *Model) viewComposerScreen() string {
 	tree := borderStyle.Width(clampMin(treeWidth-2, 1)).Height(clampMin(bodyHeight-2, 1)).
 		Render(renderTree(m.treeRows, m.treeCursor, m.expanded, m.selectedSet(), treeWidth-4, bodyHeight-4))
 
-	chart := borderStyle.Width(clampMin(chartWidth-2, 1)).Height(clampMin(bodyHeight-2, 1)).
-		Render(renderChart(m.series, m.drawMode, chartWidth-4, bodyHeight-4))
+	chart := m.renderChartPane(chartWidth, bodyHeight)
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, tree, chart)
 
@@ -47,13 +48,35 @@ func (m *Model) viewComposerScreen() string {
 	return lipgloss.JoinVertical(lipgloss.Left, status, body, helpBox)
 }
 
+// renderChartPane renders the composer's chart pane at the given outer
+// width x height (border included). When graphical mode is on and an
+// image is available, it displays the image inline instead of the ASCII
+// chart. Image protocols emit one opaque multi-row block, so unlike the
+// fully-boxed ASCII chart, the image's own rows have no left/right border
+// characters — only top and bottom bars frame it.
+func (m *Model) renderChartPane(width, height int) string {
+	if m.imageProtocol != termimg.ProtocolNone && len(m.imageBytes) > 0 {
+		cols := clampMin(width-2, 1)
+		rows := clampMin(height-2, 1)
+		img := m.imageCache.escape(m.imageProtocol, m.imageBytes, m.imageVersion, cols, rows)
+		if img != "" {
+			bar := strings.Repeat("─", clampMin(width-2, 0))
+			top := borderColor.Render("┌" + bar + "┐")
+			bottom := borderColor.Render("└" + bar + "┘")
+			return top + "\n" + img + "\n" + bottom
+		}
+	}
+	return borderStyle.Width(clampMin(width-2, 1)).Height(clampMin(height-2, 1)).
+		Render(renderChart(m.series, m.drawMode, width-4, height-4))
+}
+
 func (m *Model) viewDashboardScreen() string {
 	if m.currentDashboard == nil {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, "no dashboard loaded")
 	}
 
 	statusHeight := 3
-	help := helpText(viewDashboard, popupNone, drawLine)
+	help := helpText(viewDashboard, popupNone, drawLine, m.imageProtocol)
 	helpHeight := helpBoxHeight(help, m.height/2)
 	gridHeight := clampMin(m.height-statusHeight-helpHeight, 3)
 
@@ -62,12 +85,28 @@ func (m *Model) viewDashboardScreen() string {
 
 	panels := make([]dashboardPanelState, len(m.currentDashboard.Panels))
 	for i, p := range m.currentDashboard.Panels {
-		panels[i] = dashboardPanelState{Title: p.Title, Mode: parseDrawMode(p.DrawMode)}
+		panels[i] = dashboardPanelState{
+			Title:      p.Title,
+			Mode:       parseDrawMode(p.DrawMode),
+			ImageProto: m.imageProtocol,
+		}
 		if i < len(m.panelSeries) {
 			panels[i].Series = m.panelSeries[i]
 		}
 		if i < len(m.panelErrs) {
 			panels[i].Err = m.panelErrs[i]
+		}
+		if i < len(m.panelImages) {
+			panels[i].ImageBytes = m.panelImages[i]
+		}
+		if i < len(m.panelImageErrs) && m.panelImageErrs[i] != nil {
+			panels[i].Err = m.panelImageErrs[i]
+		}
+		if i < len(m.panelImageVersions) {
+			panels[i].ImageVersion = m.panelImageVersions[i]
+		}
+		if i < len(m.panelImageCaches) {
+			panels[i].ImageCache = &m.panelImageCaches[i]
 		}
 	}
 	grid := renderDashboardGrid(panels, m.dashboardFocus, m.width, gridHeight)
@@ -127,7 +166,7 @@ func (m *Model) viewMetricsPopup() string {
 		b.WriteString(style.Render(target))
 		b.WriteString("\n")
 	}
-	b.WriteString("\n" + helpText(viewComposer, popupMetricsList, m.drawMode))
+	b.WriteString("\n" + helpText(viewComposer, popupMetricsList, m.drawMode, m.imageProtocol))
 	return b.String()
 }
 

@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/benwtr/terphite/internal/termimg"
 )
 
 type keyBinding struct {
@@ -23,6 +25,7 @@ var composerKeys = []keyBinding{
 	{"S", "save current graph to a dashboard"},
 	{"D", "open a saved dashboard"},
 	{"g", "cycle graph style (line/area/stacked)"},
+	{"I", "toggle graphical mode (iterm2/kitty image)"},
 	{"↑/↓", "move metrics tree cursor"},
 	{"enter", "select metric / expand"},
 	{"q", "quit"},
@@ -44,7 +47,7 @@ var dashboardKeys = []keyBinding{
 	{"q", "quit"},
 }
 
-func helpText(mode viewMode, popup popupKind, graphMode drawMode) string {
+func helpText(mode viewMode, popup popupKind, graphMode drawMode, imageProtocol termimg.Protocol) string {
 	var bindings []keyBinding
 	switch {
 	case popup == popupMetricsList:
@@ -57,8 +60,11 @@ func helpText(mode viewMode, popup popupKind, graphMode drawMode) string {
 	lines := make([]string, 0, len(bindings))
 	for _, b := range bindings {
 		help := b.Help
-		if b.Key == "g" {
+		switch b.Key {
+		case "g":
 			help = fmt.Sprintf("%s [%s]", help, graphMode)
+		case "I":
+			help = fmt.Sprintf("%s [%s]", help, imageProtocol)
 		}
 		lines = append(lines, fmt.Sprintf("%-8s %s", b.Key, help))
 	}

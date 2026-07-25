@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/benwtr/terphite/internal/termimg"
 	"github.com/benwtr/terphite/internal/timerange"
 )
 
@@ -84,7 +85,17 @@ func (m *Model) handleComposerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "g":
 		m.drawMode = m.drawMode.next()
+		if m.imageProtocol != termimg.ProtocolNone {
+			// areaMode is baked into the rendered image server-side, so a
+			// mode change needs a refetch; the ASCII chart re-renders the
+			// already-fetched series data instantly, no refetch needed.
+			return m, m.refreshCmd()
+		}
 		return m, nil
+
+	case "I":
+		m.imageProtocol = m.imageProtocol.Next()
+		return m, m.refreshCmd()
 	}
 	return m, nil
 }
@@ -104,8 +115,7 @@ func (m *Model) adjustTime(delta, floor int, resetValue string) (tea.Model, tea.
 	} else {
 		m.timeFrom = timerange.Format(next)
 	}
-	m.fetchGen++
-	return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+	return m, m.refreshCmd()
 }
 
 func (m *Model) activateTreeCursor() (tea.Model, tea.Cmd) {
@@ -117,8 +127,7 @@ func (m *Model) activateTreeCursor() (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	if node.Leaf {
 		m.toggleMetric(node.Path)
-		m.fetchGen++
-		cmd = fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		cmd = m.refreshCmd()
 	}
 	if len(node.Children) > 0 {
 		m.expanded[node.Path] = !m.expanded[node.Path]

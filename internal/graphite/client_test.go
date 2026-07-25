@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -161,5 +162,65 @@ func TestRenderURLOmitsCredentials(t *testing.T) {
 	}
 	if !strings.Contains(url, "/render") {
 		t.Errorf("RenderURL missing /render path: %s", url)
+	}
+}
+
+func TestFetchRenderImage(t *testing.T) {
+	fakePNG := []byte("\x89PNG\r\n\x1a\nfake-png-data")
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(fakePNG)
+	}))
+	defer srv.Close()
+
+	c, err := NewClient(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	png, err := c.FetchRenderImage(context.Background(), ImageQuery{
+		Targets:  []string{"stats.foo"},
+		From:     "-1h",
+		Width:    800,
+		Height:   400,
+		AreaMode: "stacked",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(png) != string(fakePNG) {
+		t.Errorf("got %q, want %q", png, fakePNG)
+	}
+
+	if got := gotQuery.Get("format"); got != "png" {
+		t.Errorf("format = %q, want png", got)
+	}
+	if got := gotQuery.Get("areaMode"); got != "stacked" {
+		t.Errorf("areaMode = %q, want stacked", got)
+	}
+	if got := gotQuery.Get("width"); got != "800" {
+		t.Errorf("width = %q, want 800", got)
+	}
+	if got := gotQuery.Get("height"); got != "400" {
+		t.Errorf("height = %q, want 400", got)
+	}
+	if got := gotQuery.Get("target"); got != "stats.foo" {
+		t.Errorf("target = %q, want stats.foo", got)
+	}
+}
+
+func TestFetchRenderImageError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	c, err := NewClient(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.FetchRenderImage(context.Background(), ImageQuery{}); err == nil {
+		t.Fatal("expected error for 500 response, got nil")
 	}
 }

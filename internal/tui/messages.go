@@ -17,6 +17,15 @@ type renderErrMsg struct {
 	gen int
 }
 
+type imageLoadedMsg struct {
+	png []byte
+	gen int
+}
+type imageErrMsg struct {
+	err error
+	gen int
+}
+
 type autorefreshTickMsg struct{}
 
 type dashboardListLoadedMsg struct{ names []string }
@@ -30,6 +39,17 @@ type panelRenderLoadedMsg struct {
 	gen        int
 }
 type panelRenderErrMsg struct {
+	panelIndex int
+	err        error
+	gen        int
+}
+
+type panelImageLoadedMsg struct {
+	panelIndex int
+	png        []byte
+	gen        int
+}
+type panelImageErrMsg struct {
 	panelIndex int
 	err        error
 	gen        int

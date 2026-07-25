@@ -2,10 +2,12 @@ package tui
 
 import (
 	"math"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/benwtr/terphite/internal/graphite"
+	"github.com/benwtr/terphite/internal/termimg"
 )
 
 type dashboardPanelState struct {
@@ -13,6 +15,11 @@ type dashboardPanelState struct {
 	Series []graphite.Series
 	Mode   drawMode
 	Err    error
+
+	ImageProto   termimg.Protocol
+	ImageBytes   []byte
+	ImageVersion int
+	ImageCache   *imageEscapeCache
 }
 
 func gridColumns(n int) int {
@@ -50,15 +57,10 @@ func renderDashboardGrid(panels []dashboardPanelState, focus, width, height int)
 }
 
 func renderPanelTile(p dashboardPanelState, focused bool, width, height int) string {
-	borderColor := lipgloss.Color("8")
+	tileBorderColor := lipgloss.Color("8")
 	if focused {
-		borderColor = lipgloss.Color("4")
+		tileBorderColor = lipgloss.Color("4")
 	}
-	style := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Width(clampMin(width-2, 1)).
-		Height(clampMin(height-2, 1))
 
 	innerWidth := clampMin(width-4, 1)
 	innerHeight := clampMin(height-5, 1)
@@ -68,12 +70,36 @@ func renderPanelTile(p dashboardPanelState, focused bool, width, height int) str
 		title = title[:innerWidth]
 	}
 
+	if p.Err == nil && p.ImageProto != termimg.ProtocolNone && len(p.ImageBytes) > 0 && p.ImageCache != nil {
+		if img := p.ImageCache.escape(p.ImageProto, p.ImageBytes, p.ImageVersion, innerWidth, innerHeight); img != "" {
+			return renderImageTile(title, img, tileBorderColor, width)
+		}
+	}
+
+	style := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(tileBorderColor).
+		Width(clampMin(width-2, 1)).
+		Height(clampMin(height-2, 1))
+
 	var body string
 	if p.Err != nil {
 		body = errorStyle.Render("error: " + p.Err.Error())
 	} else {
 		body = renderChart(p.Series, p.Mode, innerWidth, innerHeight)
 	}
-
 	return style.Render(title + "\n" + body)
+}
+
+// renderImageTile frames an inline image with hand-drawn top/bottom bars
+// rather than lipgloss's Border(), since the image protocols emit one
+// opaque multi-row block that can't have left/right border characters
+// interleaved on its own rows (see renderChartPane in view.go).
+func renderImageTile(title, img string, color lipgloss.Color, width int) string {
+	colorStyle := lipgloss.NewStyle().Foreground(color)
+	bar := strings.Repeat("─", clampMin(width-2, 0))
+	top := colorStyle.Render("╭" + bar + "╮")
+	bottom := colorStyle.Render("╰" + bar + "╯")
+	titleLine := colorStyle.Render("│") + " " + title
+	return top + "\n" + titleLine + "\n" + img + "\n" + bottom
 }

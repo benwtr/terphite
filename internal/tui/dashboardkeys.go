@@ -61,8 +61,7 @@ func (m *Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.timeFrom = p.TimeFrom
 		m.drawMode = parseDrawMode(p.DrawMode)
 		m.viewMode = viewComposer
-		m.fetchGen++
-		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		return m, m.refreshCmd()
 
 	case "ctrl+d":
 		if n == 0 {

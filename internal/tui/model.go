@@ -9,6 +9,7 @@ import (
 
 	"github.com/benwtr/terphite/internal/dashboard"
 	"github.com/benwtr/terphite/internal/graphite"
+	"github.com/benwtr/terphite/internal/termimg"
 	"github.com/benwtr/terphite/internal/timerange"
 )
 
@@ -79,6 +80,19 @@ func (d drawMode) next() drawMode {
 	return (d + 1) % 3
 }
 
+// graphiteAreaMode maps d to Graphite's own areaMode render param, so
+// graphical mode's images use the same draw mode as the ASCII chart.
+func (d drawMode) graphiteAreaMode() string {
+	switch d {
+	case drawArea:
+		return "all"
+	case drawStacked:
+		return "stacked"
+	default:
+		return "none"
+	}
+}
+
 // Config configures a new Model.
 type Config struct {
 	GraphiteURI  string
@@ -115,6 +129,12 @@ type Model struct {
 	series   []graphite.Series
 	fetchGen int
 
+	imageProtocol termimg.Protocol
+	imageBytes    []byte
+	imageGen      int // bumped on each fetch request, to discard stale responses
+	imageVersion  int // bumped only when imageBytes actually changes, for escape-string caching
+	imageCache    imageEscapeCache
+
 	metricsCursor int
 
 	dashboardNames []string
@@ -123,6 +143,10 @@ type Model struct {
 	currentDashboard       *dashboard.Dashboard
 	panelSeries            [][]graphite.Series
 	panelErrs              []error
+	panelImages            [][]byte
+	panelImageErrs         []error
+	panelImageVersions     []int
+	panelImageCaches       []imageEscapeCache
 	dashboardFocus         int
 	dashboardAutorefreshOn bool
 	dashboardFetchGen      int
@@ -154,14 +178,41 @@ func New(cfg Config) (*Model, error) {
 		autorefreshInterval: defaultAutorefreshInterval,
 		maxDataPoints:       defaultMaxDataPoints,
 		expanded:            make(map[string]bool),
+		imageProtocol:       termimg.Detect(),
 	}, nil
 }
 
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		fetchMetricsCmd(m.client),
-		fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen),
+		m.refreshCmd(),
 	)
+}
+
+// refreshCmd returns the command to (re-)fetch the composer's current
+// graph: a rendered image when graphical mode is on, JSON series data
+// otherwise. Centralizing the choice here (rather than branching at every
+// call site) means every action that changes what's plotted — time nav,
+// metric selection, popups, autorefresh — automatically fetches the right
+// thing.
+func (m *Model) refreshCmd() tea.Cmd {
+	if m.imageProtocol != termimg.ProtocolNone {
+		m.imageGen++
+		return fetchImageCmd(m.client, m.selectedMetrics, m.timeFrom, m.drawMode.graphiteAreaMode(), m.imageGen)
+	}
+	m.fetchGen++
+	return fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+}
+
+// refreshAllPanelsCmd is refreshCmd's dashboard-grid equivalent, fetching
+// every panel's image or JSON data depending on graphical mode.
+func (m *Model) refreshAllPanelsCmd(panels []dashboard.Panel) tea.Cmd {
+	if m.imageProtocol != termimg.ProtocolNone {
+		m.dashboardFetchGen++
+		return fetchAllPanelImagesCmd(m.client, panels, m.dashboardFetchGen)
+	}
+	m.dashboardFetchGen++
+	return fetchAllPanelsCmd(m.client, panels, m.dashboardFetchGen)
 }
 
 func (m *Model) autorefreshSeconds() int {
@@ -214,14 +265,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case imageLoadedMsg:
+		if msg.gen == m.imageGen {
+			m.imageBytes = msg.png
+			m.imageVersion++
+			m.errMsg = ""
+		}
+		return m, nil
+	case imageErrMsg:
+		if msg.gen == m.imageGen {
+			m.errMsg = msg.err.Error()
+		}
+		return m, nil
+
 	case autorefreshTickMsg:
 		if !m.autorefreshOn {
 			return m, nil
 		}
-		return m, tea.Batch(
-			fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen),
-			autorefreshTickCmd(m.autorefreshInterval),
-		)
+		return m, tea.Batch(m.refreshCmd(), autorefreshTickCmd(m.autorefreshInterval))
 
 	case dashboardListLoadedMsg:
 		m.dashboardNames = msg.names
@@ -231,11 +292,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentDashboard = msg.d
 		m.panelSeries = make([][]graphite.Series, len(msg.d.Panels))
 		m.panelErrs = make([]error, len(msg.d.Panels))
+		m.panelImages = make([][]byte, len(msg.d.Panels))
+		m.panelImageErrs = make([]error, len(msg.d.Panels))
+		m.panelImageVersions = make([]int, len(msg.d.Panels))
+		m.panelImageCaches = make([]imageEscapeCache, len(msg.d.Panels))
 		m.dashboardFocus = 0
 		m.viewMode = viewDashboard
 		m.popup = popupNone
-		m.dashboardFetchGen++
-		return m, fetchAllPanelsCmd(m.client, msg.d.Panels, m.dashboardFetchGen)
+		return m, m.refreshAllPanelsCmd(msg.d.Panels)
 	case dashboardSavedMsg:
 		m.popup = popupNone
 		m.errMsg = ""
@@ -256,12 +320,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.panelErrs[msg.panelIndex] = msg.err
 		}
 		return m, nil
+	case panelImageLoadedMsg:
+		if msg.gen == m.dashboardFetchGen && msg.panelIndex < len(m.panelImages) {
+			m.panelImages[msg.panelIndex] = msg.png
+			m.panelImageErrs[msg.panelIndex] = nil
+			m.panelImageVersions[msg.panelIndex]++
+		}
+		return m, nil
+	case panelImageErrMsg:
+		if msg.gen == m.dashboardFetchGen && msg.panelIndex < len(m.panelImageErrs) {
+			m.panelImageErrs[msg.panelIndex] = msg.err
+		}
+		return m, nil
 	case dashboardAutorefreshTickMsg:
 		if !m.dashboardAutorefreshOn || m.currentDashboard == nil {
 			return m, nil
 		}
 		return m, tea.Batch(
-			fetchAllPanelsCmd(m.client, m.currentDashboard.Panels, m.dashboardFetchGen),
+			m.refreshAllPanelsCmd(m.currentDashboard.Panels),
 			dashboardAutorefreshTickCmd(),
 		)
 

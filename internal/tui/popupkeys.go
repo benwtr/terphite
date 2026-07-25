@@ -45,8 +45,7 @@ func (m *Model) submitTextInput() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.timeFrom = normalized
-		m.fetchGen++
-		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		return m, m.refreshCmd()
 
 	case popupSetAutorefresh:
 		m.popup = popupNone
@@ -65,24 +64,21 @@ func (m *Model) submitTextInput() (tea.Model, tea.Cmd) {
 			n = 0
 		}
 		m.maxDataPoints = n
-		m.fetchGen++
-		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		return m, m.refreshCmd()
 
 	case popupAddTarget:
 		m.popup = popupMetricsList
 		if value != "" {
 			m.selectedMetrics = append(m.selectedMetrics, value)
 		}
-		m.fetchGen++
-		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		return m, m.refreshCmd()
 
 	case popupEditTarget:
 		m.popup = popupMetricsList
 		if m.metricsCursor >= 0 && m.metricsCursor < len(m.selectedMetrics) {
 			m.selectedMetrics[m.metricsCursor] = value
 		}
-		m.fetchGen++
-		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		return m, m.refreshCmd()
 
 	case popupSaveDashboardName:
 		m.popup = popupNone
@@ -103,8 +99,7 @@ func (m *Model) handleMetricsPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		m.popup = popupNone
-		m.fetchGen++
-		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		return m, m.refreshCmd()
 
 	case "up", "k":
 		if m.metricsCursor > 0 {
@@ -129,8 +124,7 @@ func (m *Model) handleMetricsPopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.metricsCursor = len(m.selectedMetrics) - 1
 			}
 		}
-		m.fetchGen++
-		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)
+		return m, m.refreshCmd()
 
 	case "enter":
 		if m.metricsCursor >= 0 && m.metricsCursor < len(m.selectedMetrics) {

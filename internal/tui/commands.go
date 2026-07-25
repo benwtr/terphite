@@ -12,6 +12,17 @@ import (
 
 const requestTimeout = 15 * time.Second
 
+// Pixel dimensions requested when fetching a rendered image. These don't
+// need to precisely match the terminal display size — the image protocols
+// scale to whatever cell box we tell them to display at — just be "high
+// enough resolution" for a reasonably sized pane.
+const (
+	composerImageWidth  = 1000
+	composerImageHeight = 500
+	panelImageWidth     = 500
+	panelImageHeight    = 300
+)
+
 func fetchMetricsCmd(client *graphite.Client) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
@@ -38,6 +49,25 @@ func fetchRenderCmd(client *graphite.Client, targets []string, from string, maxD
 			return renderErrMsg{err: err, gen: gen}
 		}
 		return renderLoadedMsg{series: series, gen: gen}
+	}
+}
+
+func fetchImageCmd(client *graphite.Client, targets []string, from, areaMode string, gen int) tea.Cmd {
+	targets = append([]string(nil), targets...)
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		defer cancel()
+		png, err := client.FetchRenderImage(ctx, graphite.ImageQuery{
+			Targets:  targets,
+			From:     from,
+			Width:    composerImageWidth,
+			Height:   composerImageHeight,
+			AreaMode: areaMode,
+		})
+		if err != nil {
+			return imageErrMsg{err: err, gen: gen}
+		}
+		return imageLoadedMsg{png: png, gen: gen}
 	}
 }
 
@@ -112,6 +142,29 @@ func fetchAllPanelsCmd(client *graphite.Client, panels []dashboard.Panel, gen in
 				return panelRenderErrMsg{panelIndex: i, err: err, gen: gen}
 			}
 			return panelRenderLoadedMsg{panelIndex: i, series: series, gen: gen}
+		}
+	}
+	return tea.Batch(cmds...)
+}
+
+func fetchAllPanelImagesCmd(client *graphite.Client, panels []dashboard.Panel, gen int) tea.Cmd {
+	cmds := make([]tea.Cmd, len(panels))
+	for i, p := range panels {
+		i, p := i, p
+		cmds[i] = func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+			defer cancel()
+			png, err := client.FetchRenderImage(ctx, graphite.ImageQuery{
+				Targets:  p.Targets,
+				From:     p.TimeFrom,
+				Width:    panelImageWidth,
+				Height:   panelImageHeight,
+				AreaMode: parseDrawMode(p.DrawMode).graphiteAreaMode(),
+			})
+			if err != nil {
+				return panelImageErrMsg{panelIndex: i, err: err, gen: gen}
+			}
+			return panelImageLoadedMsg{panelIndex: i, png: png, gen: gen}
 		}
 	}
 	return tea.Batch(cmds...)

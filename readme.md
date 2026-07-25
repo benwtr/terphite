@@ -1,51 +1,72 @@
 # Terphite
 
-This is a toy/experimental Console [Graphite](http://graphite.readthedocs.org/) Browser loosely based on Graphite Composer.
+A terminal [Graphite](http://graphite.readthedocs.org/) browser, loosely
+based on Graphite Composer. Browse the metrics tree, build a graph, and
+save sets of graphs as dashboards you can view together as a grid.
 
-It uses [blessed](https://github.com/chjj/blessed) and [blessed-contrib](https://github.com/yaronn/blessed-contrib) to do all the heavy lifting. *blessed-contrib* is a library for building console dashboards, it provides the tree and graph widgets. *blessed* is the UI toolkit, it has a DOM-like API and is surprisingly easy to work with.
-
-Next steps might be to add the _Graph Options_ and _Apply Function_ features from Composer. And make a dashboard view a la [blessed-graphite](https://github.com/lovehandle/blessed-graphite) that can display and save a grid of graphs.
-
-#### Demo Screencast
-![](http://i.imgur.com/l8LbbrG.gif)
-
-##### Reactions to the Screencast :-)
-> grubernaut [4:37 PM]
-holy shit
-
-> obfuscurity [8:37 AM]
-whoa wtf
-
->obfuscurity [8:37 AM]
-that’s better than the real thing lol
+Written in Go using [bubbletea](https://github.com/charmbracelet/bubbletea),
+[lipgloss](https://github.com/charmbracelet/lipgloss), and
+[bubbles](https://github.com/charmbracelet/bubbles).
 
 ### Install
 
-    npm install -g terphite
+```
+go install github.com/benwtr/terphite/cmd/terphite@latest
+```
+
+Or download a prebuilt binary from the
+[releases page](https://github.com/benwtr/terphite/releases).
 
 ### Usage
 
-    terphite http://user:pass@your.graphite.com:1234
+```
+terphite http://your.graphite.com:1234
+```
 
-### Install and run from source
+Credentials can be embedded in the URL (`http://user:pass@host:1234`) or
+supplied via the `GRAPHITE_USER` / `GRAPHITE_PASS` environment variables.
 
-    git clone git@github.com:benwtr/terphite.git
-    cd terphite
-    npm install
-    ./bin/terphite http://your.graphite.com
+### Keys
 
-#### Getting started with this code (for people unfamiliar with CoffeeScript)
+Composer view:
 
-The code in `src/` is CoffeeScript, it gets compiled to JavaScript and output to `lib/`. 
+| Key | Action |
+| --- | --- |
+| `↑`/`↓`, `enter` | move the metrics tree cursor, select a metric or expand/collapse a branch |
+| `[` / `]` | decrease / increase the time range by 1 minute |
+| `{` / `}` | decrease / increase the time range by 1 hour |
+| `t` | set a relative "from" time (e.g. `-1d12h`) |
+| `m` | open the selected-metrics popup (`ctrl+a` add, `ctrl+d` delete, `enter` edit, `esc` close) |
+| `i` | set the autorefresh interval, in seconds |
+| `a` | toggle autorefresh |
+| `x` | set max datapoints (`0` = unlimited) |
+| `o` | open the current graph in a browser |
+| `c` | copy the current graph's URL to the clipboard |
+| `S` | save the current graph as a panel on a dashboard |
+| `D` | open a saved dashboard |
+| `q` / `ctrl+c` | quit |
 
-To compile the CoffeeScript source:
+Dashboard view (a grid of saved graphs):
 
-    cake build
+| Key | Action |
+| --- | --- |
+| `←`/`→`/`↑`/`↓` | move focus between panels |
+| `enter` | load the focused panel back into the composer view for editing |
+| `ctrl+d` | remove the focused panel |
+| `a` | toggle autorefresh for all panels |
+| `esc` | back to composer view |
+| `q` / `ctrl+c` | quit |
 
-Or watch source for changes and compile when modified:
+Dashboards are saved as JSON files under `$XDG_CONFIG_HOME/terphite/dashboards`
+(typically `~/.config/terphite/dashboards` on Linux and
+`~/Library/Application Support/terphite/dashboards` on macOS).
 
-    cake watch
+### Developing
 
-Or, if you don't like CoffeeScript, just edit the JS directly. :-)
-
-
+```
+git clone https://github.com/benwtr/terphite.git
+cd terphite
+go build ./...
+go test ./...
+go run ./cmd/terphite http://your.graphite.com:1234
+```

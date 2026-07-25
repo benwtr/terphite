@@ -11,6 +11,7 @@ import (
 type dashboardPanelState struct {
 	Title  string
 	Series []graphite.Series
+	Mode   drawMode
 	Err    error
 }
 
@@ -71,7 +72,7 @@ func renderPanelTile(p dashboardPanelState, focused bool, width, height int) str
 	if p.Err != nil {
 		body = errorStyle.Render("error: " + p.Err.Error())
 	} else {
-		body = renderChart(p.Series, innerWidth, innerHeight)
+		body = renderChart(p.Series, p.Mode, innerWidth, innerHeight)
 	}
 
 	return style.Render(title + "\n" + body)

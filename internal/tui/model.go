@@ -38,6 +38,47 @@ const (
 	defaultMaxDataPoints       = 300
 )
 
+// drawMode selects how a chart's series are rendered: as independent
+// lines, independent filled areas, or a cumulative stacked area.
+type drawMode int
+
+const (
+	drawLine drawMode = iota
+	drawArea
+	drawStacked
+)
+
+// String returns the mode's name, used both for the help text label and as
+// the value persisted in a saved dashboard.Panel's DrawMode field.
+func (d drawMode) String() string {
+	switch d {
+	case drawArea:
+		return "area"
+	case drawStacked:
+		return "stacked"
+	default:
+		return "line"
+	}
+}
+
+// parseDrawMode parses a dashboard.Panel's stored DrawMode string, defaulting
+// to drawLine for an empty or unrecognized value (covers dashboards saved
+// before draw modes existed).
+func parseDrawMode(s string) drawMode {
+	switch s {
+	case "area":
+		return drawArea
+	case "stacked":
+		return drawStacked
+	default:
+		return drawLine
+	}
+}
+
+func (d drawMode) next() drawMode {
+	return (d + 1) % 3
+}
+
 // Config configures a new Model.
 type Config struct {
 	GraphiteURI  string
@@ -65,6 +106,7 @@ type Model struct {
 	expanded        map[string]bool
 	selectedMetrics []string
 	timeFrom        string
+	drawMode        drawMode
 
 	autorefreshOn       bool
 	autorefreshInterval int

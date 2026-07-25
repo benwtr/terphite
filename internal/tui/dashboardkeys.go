@@ -59,6 +59,7 @@ func (m *Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		p := m.currentDashboard.Panels[m.dashboardFocus]
 		m.selectedMetrics = append([]string(nil), p.Targets...)
 		m.timeFrom = p.TimeFrom
+		m.drawMode = parseDrawMode(p.DrawMode)
 		m.viewMode = viewComposer
 		m.fetchGen++
 		return m, fetchRenderCmd(m.client, m.selectedMetrics, m.timeFrom, m.maxDataPoints, m.fetchGen)

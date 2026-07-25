@@ -81,6 +81,10 @@ func (m *Model) handleComposerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.popup = popupPickDashboard
 		m.pickerCursor = 0
 		return m, fetchDashboardListCmd(m.store)
+
+	case "g":
+		m.drawMode = m.drawMode.next()
+		return m, nil
 	}
 	return m, nil
 }

@@ -25,7 +25,7 @@ func (m *Model) View() string {
 
 func (m *Model) viewComposerScreen() string {
 	statusHeight := 3
-	help := helpText(m.viewMode, m.popup)
+	help := helpText(m.viewMode, m.popup, m.drawMode)
 	helpHeight := helpBoxHeight(help, m.height/2)
 	bodyHeight := clampMin(m.height-statusHeight-helpHeight, 3)
 	treeWidth := clampMin(m.width/4, 10)
@@ -38,7 +38,7 @@ func (m *Model) viewComposerScreen() string {
 		Render(renderTree(m.treeRows, m.treeCursor, m.expanded, m.selectedSet(), treeWidth-4, bodyHeight-4))
 
 	chart := borderStyle.Width(clampMin(chartWidth-2, 1)).Height(clampMin(bodyHeight-2, 1)).
-		Render(renderChart(m.series, chartWidth-4, bodyHeight-4))
+		Render(renderChart(m.series, m.drawMode, chartWidth-4, bodyHeight-4))
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, tree, chart)
 
@@ -53,7 +53,7 @@ func (m *Model) viewDashboardScreen() string {
 	}
 
 	statusHeight := 3
-	help := helpText(viewDashboard, popupNone)
+	help := helpText(viewDashboard, popupNone, drawLine)
 	helpHeight := helpBoxHeight(help, m.height/2)
 	gridHeight := clampMin(m.height-statusHeight-helpHeight, 3)
 
@@ -62,7 +62,7 @@ func (m *Model) viewDashboardScreen() string {
 
 	panels := make([]dashboardPanelState, len(m.currentDashboard.Panels))
 	for i, p := range m.currentDashboard.Panels {
-		panels[i] = dashboardPanelState{Title: p.Title}
+		panels[i] = dashboardPanelState{Title: p.Title, Mode: parseDrawMode(p.DrawMode)}
 		if i < len(m.panelSeries) {
 			panels[i].Series = m.panelSeries[i]
 		}
@@ -127,7 +127,7 @@ func (m *Model) viewMetricsPopup() string {
 		b.WriteString(style.Render(target))
 		b.WriteString("\n")
 	}
-	b.WriteString("\n" + helpText(viewComposer, popupMetricsList))
+	b.WriteString("\n" + helpText(viewComposer, popupMetricsList, m.drawMode))
 	return b.String()
 }
 

@@ -93,6 +93,7 @@ func (m *Model) submitTextInput() (tea.Model, tea.Cmd) {
 			Title:    panelTitle(m.selectedMetrics),
 			Targets:  append([]string(nil), m.selectedMetrics...),
 			TimeFrom: m.timeFrom,
+			DrawMode: m.drawMode.String(),
 		})
 	}
 	return m, nil

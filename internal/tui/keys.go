@@ -22,6 +22,7 @@ var composerKeys = []keyBinding{
 	{"c", "copy graphite URI to clipboard"},
 	{"S", "save current graph to a dashboard"},
 	{"D", "open a saved dashboard"},
+	{"g", "cycle graph style (line/area/stacked)"},
 	{"↑/↓", "move metrics tree cursor"},
 	{"enter", "select metric / expand"},
 	{"q", "quit"},
@@ -43,7 +44,7 @@ var dashboardKeys = []keyBinding{
 	{"q", "quit"},
 }
 
-func helpText(mode viewMode, popup popupKind) string {
+func helpText(mode viewMode, popup popupKind, graphMode drawMode) string {
 	var bindings []keyBinding
 	switch {
 	case popup == popupMetricsList:
@@ -55,7 +56,11 @@ func helpText(mode viewMode, popup popupKind) string {
 	}
 	lines := make([]string, 0, len(bindings))
 	for _, b := range bindings {
-		lines = append(lines, fmt.Sprintf("%-8s %s", b.Key, b.Help))
+		help := b.Help
+		if b.Key == "g" {
+			help = fmt.Sprintf("%s [%s]", help, graphMode)
+		}
+		lines = append(lines, fmt.Sprintf("%-8s %s", b.Key, help))
 	}
 	return strings.Join(lines, "\n")
 }

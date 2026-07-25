@@ -11,7 +11,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	d := &Dashboard{
 		Name: "prod overview",
 		Panels: []Panel{
-			{Title: "cpu", Targets: []string{"stats.cpu"}, TimeFrom: "-1h"},
+			{Title: "cpu", Targets: []string{"stats.cpu"}, TimeFrom: "-1h", DrawMode: "stacked"},
 			{Title: "mem", Targets: []string{"stats.mem"}, TimeFrom: "-1h"},
 		},
 	}
@@ -27,6 +27,12 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if got.Panels[0].Title != "cpu" || got.Panels[1].Title != "mem" {
 		t.Errorf("panels not preserved: %+v", got.Panels)
+	}
+	if got.Panels[0].DrawMode != "stacked" {
+		t.Errorf("Panels[0].DrawMode = %q, want stacked", got.Panels[0].DrawMode)
+	}
+	if got.Panels[1].DrawMode != "" {
+		t.Errorf("Panels[1].DrawMode = %q, want empty (defaults to line)", got.Panels[1].DrawMode)
 	}
 }
 

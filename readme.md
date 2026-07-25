@@ -44,7 +44,13 @@ Composer view:
 | `c` | copy the current graph's URL to the clipboard |
 | `S` | save the current graph as a panel on a dashboard |
 | `D` | open a saved dashboard |
+| `g` | cycle graph style: line / area / stacked |
 | `q` / `ctrl+c` | quit |
+
+Charts render with braille sub-character resolution for smooth connected
+lines. `g` cycles between plain lines, independent filled areas per series,
+and a cumulative stacked area (like Graphite's `areaMode=stacked`). Each
+saved dashboard panel remembers its own graph style.
 
 Dashboard view (a grid of saved graphs):
 

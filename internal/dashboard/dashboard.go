@@ -11,12 +11,15 @@ import (
 	"strings"
 )
 
-// Panel is a saved snapshot of a graph: the metrics it plots and the time
-// range it was viewed over.
+// Panel is a saved snapshot of a graph: the metrics it plots, the time
+// range it was viewed over, and how it was drawn ("line", "area", or
+// "stacked" — empty means "line", for dashboards saved before draw modes
+// existed).
 type Panel struct {
 	Title    string   `json:"title"`
 	Targets  []string `json:"targets"`
 	TimeFrom string   `json:"timeFrom"`
+	DrawMode string   `json:"drawMode,omitempty"`
 }
 
 // Dashboard is a named collection of panels.

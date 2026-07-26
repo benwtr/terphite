@@ -109,10 +109,11 @@ type Model struct {
 	width, height int
 	quitting      bool
 
-	viewMode viewMode
-	popup    popupKind
-	input    textinput.Model
-	errMsg   string
+	viewMode      viewMode
+	popup         popupKind
+	input         textinput.Model
+	errMsg        string
+	helpCollapsed bool
 
 	tree            *graphite.MetricNode
 	treeRows        []treeRow
@@ -178,7 +179,10 @@ func New(cfg Config) (*Model, error) {
 		autorefreshInterval: defaultAutorefreshInterval,
 		maxDataPoints:       defaultMaxDataPoints,
 		expanded:            make(map[string]bool),
-		imageProtocol:       termimg.Detect(),
+		// Graphical mode starts off: it depends on terminal support that
+		// can't be detected reliably (tmux and SSH in particular don't
+		// always relay the escape sequences), so it's opt-in via `I`.
+		imageProtocol: termimg.ProtocolNone,
 	}, nil
 }
 

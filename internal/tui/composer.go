@@ -94,10 +94,31 @@ func (m *Model) handleComposerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "I":
-		m.imageProtocol = m.imageProtocol.Next()
-		return m, m.refreshCmd()
+		m.imageProtocol = nextImageProtocol(m.imageProtocol)
+		return m, tea.Batch(m.refreshCmd(), tea.ClearScreen)
+
+	case "?":
+		m.helpCollapsed = !m.helpCollapsed
+		return m, nil
+
+	case "l", "ctrl+l":
+		return m, tea.ClearScreen
 	}
 	return m, nil
+}
+
+// nextImageProtocol cycles graphical mode. Turning it on from off jumps
+// straight to whatever the terminal looks like it supports, so the common
+// case is a single keypress; cycling past that lets you override a wrong
+// guess (detection can't see through tmux or SSH).
+func nextImageProtocol(cur termimg.Protocol) termimg.Protocol {
+	if cur == termimg.ProtocolNone {
+		if detected := termimg.Detect(); detected != termimg.ProtocolNone {
+			return detected
+		}
+		return termimg.ProtocolITerm2
+	}
+	return cur.Next()
 }
 
 // adjustTime shifts the current time_from by delta seconds. When decreasing

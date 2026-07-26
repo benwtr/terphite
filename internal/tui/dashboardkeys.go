@@ -83,6 +83,14 @@ func (m *Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, dashboardAutorefreshTickCmd()
 		}
 		return m, nil
+
+	case "?":
+		m.helpCollapsed = !m.helpCollapsed
+		return m, nil
+
+	// `l` is taken by vim-style pane movement here, so only ctrl+l redraws.
+	case "ctrl+l":
+		return m, tea.ClearScreen
 	}
 	return m, nil
 }

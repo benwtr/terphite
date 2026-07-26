@@ -27,8 +27,8 @@ func (m *Model) View() string {
 
 func (m *Model) viewComposerScreen() string {
 	statusHeight := 3
-	help := helpText(m.viewMode, m.popup, m.drawMode, m.imageProtocol)
-	helpHeight := helpBoxHeight(help, m.height/2)
+	help := helpText(m.viewMode, m.popup, m.drawMode, m.imageProtocol, m.width-4, m.helpBudgetRows(), m.helpCollapsed)
+	helpHeight := helpBoxHeight(help)
 	bodyHeight := clampMin(m.height-statusHeight-helpHeight, 3)
 	treeWidth := clampMin(m.width/4, 10)
 	chartWidth := clampMin(m.width-treeWidth, 10)
@@ -45,29 +45,38 @@ func (m *Model) viewComposerScreen() string {
 
 	helpBox := borderStyle.Width(clampMin(m.width-2, 1)).Height(clampMin(helpHeight-2, 1)).Render(help)
 
-	return lipgloss.JoinVertical(lipgloss.Left, status, body, helpBox)
+	frame := lipgloss.JoinVertical(lipgloss.Left, status, body, helpBox)
+
+	// The chart pane's inner area starts one row below the status box and
+	// one column inside the chart pane's left border (both 1-indexed).
+	return frame + m.composerImageOverlay(statusHeight+2, treeWidth+2, chartWidth, bodyHeight)
 }
 
 // renderChartPane renders the composer's chart pane at the given outer
-// width x height (border included). When graphical mode is on and an
-// image is available, it displays the image inline instead of the ASCII
-// chart. Image protocols emit one opaque multi-row block, so unlike the
-// fully-boxed ASCII chart, the image's own rows have no left/right border
-// characters — only top and bottom bars frame it.
+// width x height (border included). In graphical mode it renders an
+// empty box of the correct size; the image itself is painted over that
+// region by composerImageOverlay (see overlayAt for why).
 func (m *Model) renderChartPane(width, height int) string {
-	if m.imageProtocol != termimg.ProtocolNone && len(m.imageBytes) > 0 {
-		cols := clampMin(width-2, 1)
-		rows := clampMin(height-2, 1)
-		img := m.imageCache.escape(m.imageProtocol, m.imageBytes, m.imageVersion, cols, rows)
-		if img != "" {
-			bar := strings.Repeat("─", clampMin(width-2, 0))
-			top := borderColor.Render("┌" + bar + "┐")
-			bottom := borderColor.Render("└" + bar + "┘")
-			return top + "\n" + img + "\n" + bottom
-		}
+	box := borderStyle.Width(clampMin(width-2, 1)).Height(clampMin(height-2, 1))
+	if m.imageActive() {
+		return box.Render("")
 	}
-	return borderStyle.Width(clampMin(width-2, 1)).Height(clampMin(height-2, 1)).
-		Render(renderChart(m.series, m.drawMode, width-4, height-4))
+	return box.Render(renderChart(m.series, m.drawMode, width-4, height-4))
+}
+
+// imageActive reports whether the composer should show a rendered image
+// rather than the ASCII chart.
+func (m *Model) imageActive() bool {
+	return m.imageProtocol != termimg.ProtocolNone && len(m.imageBytes) > 0
+}
+
+func (m *Model) composerImageOverlay(row, col, chartWidth, bodyHeight int) string {
+	if !m.imageActive() {
+		return ""
+	}
+	cols := clampMin(chartWidth-2, 1)
+	rows := clampMin(bodyHeight-2, 1)
+	return overlayAt(row, col, m.imageCache.escape(m.imageProtocol, m.imageBytes, m.imageVersion, cols, rows))
 }
 
 func (m *Model) viewDashboardScreen() string {
@@ -76,8 +85,8 @@ func (m *Model) viewDashboardScreen() string {
 	}
 
 	statusHeight := 3
-	help := helpText(viewDashboard, popupNone, drawLine, m.imageProtocol)
-	helpHeight := helpBoxHeight(help, m.height/2)
+	help := helpText(viewDashboard, popupNone, drawLine, m.imageProtocol, m.width-4, m.helpBudgetRows(), m.helpCollapsed)
+	helpHeight := helpBoxHeight(help)
 	gridHeight := clampMin(m.height-statusHeight-helpHeight, 3)
 
 	title := fmt.Sprintf("dashboard: %s  autorefresh: %s", m.currentDashboard.Name, onOff(m.dashboardAutorefreshOn))
@@ -109,11 +118,14 @@ func (m *Model) viewDashboardScreen() string {
 			panels[i].ImageCache = &m.panelImageCaches[i]
 		}
 	}
-	grid := renderDashboardGrid(panels, m.dashboardFocus, m.width, gridHeight)
+	// The grid starts directly below the status box; renderDashboardGrid
+	// returns the image overlays separately so the frame's line count stays
+	// honest (see overlayAt).
+	grid, overlays := renderDashboardGrid(panels, m.dashboardFocus, m.width, gridHeight, statusHeight)
 
 	helpBox := borderStyle.Width(clampMin(m.width-2, 1)).Height(clampMin(helpHeight-2, 1)).Render(help)
 
-	return lipgloss.JoinVertical(lipgloss.Left, status, grid, helpBox)
+	return lipgloss.JoinVertical(lipgloss.Left, status, grid, helpBox) + overlays
 }
 
 func (m *Model) viewPopup() string {
@@ -166,7 +178,9 @@ func (m *Model) viewMetricsPopup() string {
 		b.WriteString(style.Render(target))
 		b.WriteString("\n")
 	}
-	b.WriteString("\n" + helpText(viewComposer, popupMetricsList, m.drawMode, m.imageProtocol))
+	// The popup's help is always expanded — it's only four bindings, and
+	// the popup is sized to its content rather than the screen.
+	b.WriteString("\n" + helpText(viewComposer, popupMetricsList, m.drawMode, m.imageProtocol, 0, len(metricsPopupKeys), false))
 	return b.String()
 }
 
@@ -195,14 +209,17 @@ func onOff(b bool) string {
 	return "off"
 }
 
-// helpBoxHeight returns the total (border-inclusive) height needed to show
-// help without truncation, sized to its actual content rather than a fixed
-// fraction of the screen — a short guess would let help text overflow its
-// box and push everything above it (including the status bar) off-screen.
-func helpBoxHeight(help string, maxHeight int) int {
-	needed := strings.Count(help, "\n") + 1 + 2
-	if needed > maxHeight {
-		needed = maxHeight
-	}
-	return clampMin(needed, 4)
+// helpBudgetRows is how many rows of help the layout is willing to spend,
+// leaving the rest of the screen for the chart. helpText fits itself into
+// this by adding columns.
+func (m *Model) helpBudgetRows() int {
+	return clampMin(m.height/4, 1)
+}
+
+// helpBoxHeight returns the border-inclusive height of the help box, sized
+// to the text helpText actually produced. It must not be a guess: lipgloss
+// pads to a declared height but never truncates, so a box declared shorter
+// than its content silently overflows and pushes the frame off-screen.
+func helpBoxHeight(help string) int {
+	return strings.Count(help, "\n") + 1 + 2
 }

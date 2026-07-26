@@ -51,7 +51,9 @@ Composer view:
 | `S` | save the current graph as a panel on a dashboard |
 | `D` | open a saved dashboard |
 | `g` | cycle graph style: line / area / stacked |
-| `I` | toggle graphical mode: off / iterm2 / kitty |
+| `I` | toggle graphical mode: off / iterm2 / kitty (off by default) |
+| `l` | redraw the screen |
+| `?` | collapse/expand the help bar |
 | `q` / `ctrl+c` | quit |
 
 Charts render with braille sub-character resolution for smooth connected
@@ -78,15 +80,18 @@ Dashboards are saved as JSON files under `$XDG_CONFIG_HOME/terphite/dashboards`
 
 In terminals that support inline images — iTerm2, WezTerm, Kitty, Ghostty —
 terphite can display Graphite's own rendered PNGs instead of ASCII charts,
-giving you graphite-web's real axis labels, legends, and gridlines. This is
-auto-detected at startup; `I` cycles it manually (off / iterm2 / kitty) if
-detection guesses wrong, which it can inside tmux or over SSH since those
-don't always relay the escape sequences. Everywhere else, terphite falls
-back to the braille charts automatically.
+giving you graphite-web's real axis labels, legends, and gridlines.
 
-Caveat: graphical mode has only been verified at the protocol level (the
-escape sequences are emitted correctly and carry a valid PNG). It has not
-been visually confirmed in an actual image-capable terminal.
+It is **off by default**, since whether it works depends on terminal support
+that can't be detected reliably (tmux and SSH in particular don't always
+relay the escape sequences). Press `I` to turn it on: the first press picks
+whichever protocol your terminal looks like it supports, and pressing again
+cycles through the others in case that guess is wrong.
+
+The image is painted as an overlay on top of a blank region reserved in the
+layout, rather than embedded in it — an image escape sequence is a single
+line of text but many rows on screen, and embedding one directly makes
+everything below it slide off the bottom of the terminal.
 
 ### Developing
 
